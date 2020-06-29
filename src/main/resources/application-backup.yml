@@ -1,0 +1,124 @@
+########统一配置  Unified configuration begin##########
+# server config
+server.port: 0
+# log config
+logging:
+    path: ./log
+    level:
+        com.jdcloud.jss.transfer: INFO
+
+##########################################################################################
+#jobType 为 listObject,transfer,md5check
+jobType: transfer
+#sourceType 类型共有： urlfile,diskfile，s3file,aliyunfile,disklistfile
+sourceType: s3file
+#urlType : onlyUrl
+#############################################################################################
+#sourceType 为 urlfile ，diskfile时，filePath 为必填项
+#filePath:
+
+#urlFilePrefix: 10
+
+
+#该链接的Content-Disposition超过京东云限制，如不获取该header值继续传，则配置为true；否则将该url打印在错误日志里，由用户对该url的header值自行修改
+ContentDispositionTooLongContinue: false
+#sourceType为urlfile，表示从用户提供的url列表中迁移。文件列表内容为[ object外链,objectkey ] 使用逗号分隔
+
+########迁移配置 transfer conf #######################################################
+
+#任务限制的同时读取的文件数
+task.limit.threadCount: 20
+#任务限制的qps数
+#因为put占用带宽较低。总带宽为 partsize*qps
+task.limit.qps: 50
+
+
+#迁移是否覆盖文件,默认覆盖
+transfer.coverFile: true
+# check put object normal put（<32M） or multipartupload (>32M)
+transfer.put.maxsize: 33554432
+# part upload config
+#如果使用分块复制，每块分片的大小，缺省为32M
+transfer.multipart.partsize: 33554432
+# 分片复制时最大并发的数量, 缺省为5
+transfer.multipart.threads: 5
+
+###########################源bucket配置################################################
+#jdcloud
+#src.access.id : 26E4F8360D87442010830CBE5703XXXX
+#src.secret.key: 663991EAAA943FA8A58F944783FBXXXX
+#src.endpoint : https://s3.cn-north-1.jcloudcs.com
+
+#aliyun
+#src.access.id : LTAIC3X3tsQJXXXX
+#src.secret.key: 0Z0MUWBKCItQLO5P3gWVC8IrXXXX
+#src.endpoint : https://oss-cn-beijing.aliyuncs.com
+
+#tencent
+#src.access.id : AKIDCFboqQDZu5bzCCm1nsq3mKmCUbZXXXX
+#src.secret.key: vZ44udmoe75d4DQXTI88jfQsCOXXXX
+#src.endpoint : https://cos.ap-beijing.myqcloud.com
+
+#baidu
+#src.access.id : e03c3b3e203744e09cbeeb523c8XXXX
+#src.secret.key: df484a6b33f6446e89ed3c4f62cXXXX
+#src.endpoint : https://s3.bj.bcebos.com
+
+#aws
+src.access.id : 2BNBAHO72FZDN6UW8QS8
+src.secret.key: xSymVW1BxA4pLeEtYsNW3ox9o8RKdAYAOhgsRdbd
+src.endpoint : http://sgw.office.gz
+src.bucket : trading-notes
+
+#huawei
+#src.access.id : D61CEH0ABE3CIGF9N6XC
+#src.secret.key: ogc7mYg3xlmtPqFSsDo4Mt7MgymMRMktzFbbs08y
+#src.endpoint : http://obs.cn-north-1.myhuaweicloud.com
+
+#qiniu
+#src.access.id : bbMP1tLhDdk8qpOwuD04bAlHRgQNtAKc3fOidiNX
+#src.secret.key: EhjQmL2bEuUwA2I5HyoXPsZLDQZJMFzC6r6YWPer
+#src.endpoint : http://cn-south-1-s3.qiniu.com
+#src.domainOfBucket : pl2cs78z7.bkt.clouddn.com
+
+#-bucket
+
+#src.bucket :
+#src.prefix :
+
+
+
+
+
+##################目标bucket配置 destination ############################################################
+des.access.id : QG1BV2COABRCL1RBHV4V
+des.secret.key: bmR3GqDRKFbwFkwo7pkdn7hJm4RXiNS1eQYm7kxU
+des.endpoint : http://abs-rgw.dp1.gz
+des.bucket : trading-notes-backup
+#des.prefix :
+
+md5:
+    marker:
+
+
+######################################################################
+# spring config
+spring:
+    mvc.throw-exception-if-no-handler-found: true
+    http.encoding.force: true
+    output.ansi.enabled: ALWAYS
+    jackson:
+        default-property-inclusion: non_null
+        # tomcat config
+        tomcat:
+            initial-size: 5
+            maxIdle: 10
+            min-idle: 0
+            max-active: 60
+            remove-abandoned: true
+            remove-abandoned-timeout: 180
+            max-wait: 30000
+            validation-query: SELECT 1
+            test-on-borrow: true
+            test-while-idle: false
+            test-on-return: false

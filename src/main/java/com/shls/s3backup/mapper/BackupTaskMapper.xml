@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.shls.s3backup.dao.BackupTaskDao" >
+
+    <select id="listBackupTaskDetail" resultType="com.shls.s3backup.vo.BackupTaskVo">
+        select t.id,t.task_status,date_format(t.start_time,'%Y-%m-%d %H:%i:%s') starttime,date_format(t.end_time,'%Y-%m-%d %H:%i:%s') endtime,
+        sum(case when r.backup_result=1 then 1 else 0 end) successCount,
+        sum(case when r.backup_result=2 then 1 else 0 end) failCount,
+        ifnull(sum(case when r.backup_result=1 then r.size else 0 end),0) size
+        from backup_task t
+        left join backup_record r
+        on r.task_id=t.id and r.is_delete=0
+        where t.is_delete=0 and t.backup_ceph=#{backupCeph}
+        group by t.id,t.task_status,t.start_time,t.end_time
+        order by t.id desc
+        <if test="offset >= 0">
+            limit #{offset}, #{length}
+        </if>
+
+    </select>
+
+</mapper>

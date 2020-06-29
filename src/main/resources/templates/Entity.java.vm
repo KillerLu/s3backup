@@ -1,0 +1,91 @@
+package $!{package.Entity};
+
+import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.baomidou.mybatisplus.extension.activerecord.Model;
+
+#if($!{entityLombokModel})
+import lombok.Data;
+#end
+import java.io.Serializable;
+import java.util.Date;
+
+/**
+ * $!{table.comment}
+ *
+ * @author $!{author}
+ * @date $!{date}
+ */
+#if($!{entityLombokModel})
+@Data
+#end
+@TableName("$!{table.name}")
+public class $!{entity} extends Model<$!{entity}> {
+
+    private static final long serialVersionUID = 1L;
+
+
+    //重写这个方法，return当前类的主键
+    @Override
+    protected Serializable pkVal() {
+        return id;
+    }
+
+
+#foreach ($field in $!{table.fields})
+#if("$!field.comment" != "")
+    /**
+     * $!{field.comment}
+     */
+#end
+## 主键
+#if($!{field.keyFlag})
+    @TableId
+#end
+## 逻辑删除
+#if($!{field.propertyName} == "isDelete")
+    @TableField(fill = FieldFill.INSERT)
+#end
+## 创建时间
+#if($!{field.propertyName} == "createTime")
+    @TableField(fill = FieldFill.INSERT)
+#end
+## 更新时间
+#if($!{field.propertyName} == "modifyTime")
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+#end
+## 逻辑删除
+#if($!{field.propertyName} == "isDelete")
+    @TableLogic
+#end
+#if($!{field.propertyType} == "LocalDateTime")
+    private Date $!{field.propertyName};
+#else
+    private $!{field.propertyType} $!{field.propertyName};
+#end
+#end
+
+#foreach ($field in $!{table.fields})
+
+    #set ($name = $!{field.propertyName.substring(0,1).toUpperCase()}+$!{field.propertyName.substring(1)})
+    #if($!{field.propertyType} == "LocalDateTime")
+    public void set$!name(Date $!{field.propertyName}) {
+        this.$!{field.propertyName} = $!{field.propertyName};
+    }
+    #else
+    public void set$!name($!{field.propertyType} $!{field.propertyName}) {
+        this.$!{field.propertyName} = $!{field.propertyName};
+    }
+    #end
+    #if($!{field.propertyType} == "LocalDateTime")
+    public Date get$!name() {
+        return this.$!{field.propertyName};
+    }
+    #else
+    public $!{field.propertyType} get$!name() {
+        return this.$!{field.propertyName};
+    }
+    #end
+
+#end
+}
