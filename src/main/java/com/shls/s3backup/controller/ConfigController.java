@@ -38,7 +38,7 @@ public class ConfigController {
     public Object listCephConfig() {
         List<CephConfig> configs = configService.listCephConfigs();
         List<CephConfigVo> vos = CloneUtil.batchClone(configs, CephConfigVo.class);
-        return new ResponseBuilder().success().data(vos).build();
+        return new ResponseBuilder().success().data(vos).add("total", vos.size()).build();
     }
 
     @RequestMapping(value = "/createCephConfig", method = RequestMethod.POST)

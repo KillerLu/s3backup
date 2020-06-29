@@ -10,6 +10,7 @@ import com.shls.s3backup.dao.BackupTaskDao;
 import com.shls.s3backup.util.*;
 import com.shls.s3backup.view.BackupRecord;
 import com.shls.s3backup.view.BackupTask;
+import com.shls.s3backup.view.CephConfig;
 import com.shls.s3backup.vo.BackupRecordVo;
 import com.shls.s3backup.vo.BackupTaskVo;
 import org.slf4j.Logger;
@@ -42,12 +43,6 @@ public class BackupService {
 
     private static final Logger logger = LoggerFactory.getLogger(BackupService.class);
 
-    @Autowired
-    private AmazonS3 srcAmazonS3;
-    @Autowired
-    private AmazonS3 desAmazonS3;
-    @Value("${backup.prefix}")
-    private String prefix;
     @Value("${transfer.put.maxsize}")
     private int putMaxSize;
 
@@ -56,38 +51,40 @@ public class BackupService {
      */
     public static final int BACKUP_ALL = 1;
     /**
-     * 备份上一天(增量备份)
+     * 备份某一天(增量备份)
      */
     public static final int BACKUP_BY_DATE = 2;
 
     /**
      * 定时备份昨天
      */
-    public static final int REGULAR_BACKUP=3;
+    public static final int REGULAR_BACKUP = 3;
 
     /**
      * 备份结果
      */
-    public static final int BACKUP_SUCCESS=1;
+    public static final int BACKUP_SUCCESS = 1;
 
-    public static final int BACKUP_FAIL=2;
+    public static final int BACKUP_FAIL = 2;
 
     /**
      * 任务状态
      */
-    public static final int TASK_FINISH=1;
+    public static final int TASK_FINISH = 1;
 
-    public static final int TASK_RUNNING=0;
+    public static final int TASK_RUNNING = 0;
 
-    public static final int TASK_SUSPEND=2;
+    public static final int TASK_SUSPEND = 2;
 
     @Autowired
     private BackupRecordDao backupRecordDao;
     @Autowired
     private BackupTaskDao backupTaskDao;
+    @Autowired
+    private ConfigService configService;
 
-    public void backupBacket(String bucketName,Long taskId,Integer backupType) {
-        List<S3ObjectSummary> summarys = listBucketObject(bucketName,backupType);
+    public void backupBacket(String bucketName, Long taskId, Integer backupType, Date backupDate, AmazonS3 srcAmazonS3, AmazonS3 desAmazonS3) {
+        List<S3ObjectSummary> summarys = listBucketObject(bucketName, backupType, backupDate, srcAmazonS3);
         if (!CollectionUtils.isEmpty(summarys)) {
             logger.info("开始备份" + bucketName + "bucket,共" + summarys.size() + "个文件");
             for (S3ObjectSummary summary : summarys) {
@@ -105,21 +102,21 @@ public class BackupService {
                     if (s3Object != null) {
                         if (s3Object.getObjectMetadata().getContentLength() > putMaxSize) {
                             logger.info("开始备份大文件,bucket:" + bucketName + "key:" + key + "文件大小:" + s3Object.getObjectMetadata().getContentLength());
-                            partPutObjecct(desAmazonS3, StringUtils.isEmpty(prefix) ? bucketName : bucketName + prefix, key, s3Object);
+                            partPutObjecct(desAmazonS3,  bucketName , key, s3Object);
                         } else {
-                            putObject(desAmazonS3, StringUtils.isEmpty(prefix) ? bucketName : bucketName + prefix, key, s3Object);
+                            putObject(desAmazonS3, bucketName, key, s3Object);
                         }
                     }
                     record.setBackupResult(BACKUP_SUCCESS);
                 } catch (Exception e) {
                     record.setBackupResult(BACKUP_FAIL);
                     if (e.getMessage().contains("AccessDenied")) {
-                        logger.error(bucketName+"无权限写入");
+                        logger.error(bucketName + "无权限写入");
                         break;
                     }
                     logger.error("bucket:" + bucketName + ",key:" + key + "备份失败", e);
                     continue;
-                }finally {
+                } finally {
                     record.setBucket(bucketName);
                     record.setUniqueKey(key);
                     record.setBackupType(backupType);
@@ -131,18 +128,18 @@ public class BackupService {
         }
     }
 
-    private List<S3ObjectSummary> listBucketObject(String bucketName,Integer backupType) {
+    private List<S3ObjectSummary> listBucketObject(String bucketName, Integer backupType, Date backupDate, AmazonS3 srcAmazonS3) {
         ObjectListing listing = srcAmazonS3.listObjects(bucketName);
         List<S3ObjectSummary> summaries = listing.getObjectSummaries();
 
         while (listing.isTruncated()) {
-            listing = srcAmazonS3.listNextBatchOfObjects (listing);
-            summaries.addAll (listing.getObjectSummaries());
+            listing = srcAmazonS3.listNextBatchOfObjects(listing);
+            summaries.addAll(listing.getObjectSummaries());
         }
         List<S3ObjectSummary> returnSummaries = new ArrayList<S3ObjectSummary>();
         if (!CollectionUtils.isEmpty(summaries)) {
             for (S3ObjectSummary summary : summaries) {
-                if (checkShouldBackup(summary,backupType)) {
+                if (checkShouldBackup(summary, backupType, backupDate)) {
                     returnSummaries.add(summary);
                 }
             }
@@ -150,19 +147,12 @@ public class BackupService {
         return returnSummaries;
     }
 
-    private boolean checkShouldBackup(S3ObjectSummary summary,Integer backupType) {
-        switch (backupType) {
-            case BACKUP_ALL:
-                return true;
-            case REGULAR_BACKUP:
-                return summary.getLastModified().getTime()>= DateUtil.getDayStartTime(DateUtil.getNow(), -1).getTime()&&
-                        summary.getLastModified().getTime()<=DateUtil.getDayEndTime(DateUtil.getNow(), -1).getTime();
-            case BACKUP_BY_DATE:
-                return summary.getLastModified().getTime()>= DateUtil.getDayStartTime(DateUtil.getNow(), 0).getTime()&&
-                        summary.getLastModified().getTime()<=DateUtil.getDayEndTime(DateUtil.getNow(), 0).getTime();
-            default:
-                return false;
+    private boolean checkShouldBackup(S3ObjectSummary summary, Integer backupType, Date backupDate) {
+        if (backupType == BACKUP_ALL) {
+            return true;
         }
+        return summary.getLastModified().getTime() >= DateUtil.getDayStartTime(backupDate, 0).getTime() &&
+                summary.getLastModified().getTime() <= DateUtil.getDayEndTime(backupDate, 0).getTime();
     }
 
     public PutObjectResult putObject(AmazonS3 amazonS3, String bucket, String key, S3Object s3Object) {
@@ -199,9 +189,9 @@ public class BackupService {
             int len;
             int partNum = 1;
             bos = new ByteArrayOutputStream();
-            int totalLength=0;
+            int totalLength = 0;
             while ((len = inputStream.read(buffer, 0, size)) != -1) {
-                totalLength+=len;
+                totalLength += len;
                 bos.write(buffer, 0, len);
                 if (bos.size() >= putMaxSize) {
                     UploadPartRequest uploadRequest = new UploadPartRequest()
@@ -213,7 +203,7 @@ public class BackupService {
                             amazonS3.uploadPart(uploadRequest).getPartETag());
                     bos.close();
                     bos = new ByteArrayOutputStream();
-                    totalLength=0;
+                    totalLength = 0;
                 }
             }
             UploadPartRequest uploadRequest = new UploadPartRequest()
@@ -242,30 +232,41 @@ public class BackupService {
         }
     }
 
-    public void backupS3(Integer backupType) {
-        BackupTask task=new BackupTask();
-        task.setBackupType(backupType);
-        task.setStartTime(DateUtil.getNow());
-
-        backupTaskDao.insert(task);
+    public void backupS3(Integer backupType, String backupCeph, Date backupDate) {
+        //查询该backupCeph
+        CephConfig config = configService.getConfigByName(backupCeph);
+        if (config == null) {
+            throw new RuntimeException("当前要备份的ceph不存在");
+        }
         ThreadPoolUtils.execute(() -> {
+            AmazonS3 srcAmazonS3 = ClientUtil.getS3Client(config.getSrcAccessId(), config.getSrcSecretKey(), config.getSrcEndpoint());
+            AmazonS3 desAmazonS3 = ClientUtil.getS3Client(config.getDesAccessId(), config.getDesSecretKey(), config.getDesEndpoint());
+
+            BackupTask task = new BackupTask();
+            task.setBackupType(backupType);
+            task.setBackupCeph(backupCeph);
+            task.setStartTime(DateUtil.getNow());
+
+            backupTaskDao.insert(task);
             List<Bucket> bucketList = srcAmazonS3.listBuckets();
             if (!CollectionUtils.isEmpty(bucketList)) {
                 for (Bucket bucket : bucketList) {
-                    backupBacket(bucket.getName(),task.getId(),backupType);
+                    backupBacket(bucket.getName(), task.getId(), backupType, backupDate, srcAmazonS3, desAmazonS3);
                 }
             }
             task.setEndTime(DateUtil.getNow());
             task.setTaskStatus(TASK_FINISH);
             backupTaskDao.updateById(task);
+            srcAmazonS3.shutdown();
+            desAmazonS3.shutdown();
         });
 
     }
 
 
-    public ListAndCount<BackupTaskVo> listBackupTaskDetail(String backupCeph,Integer page, Integer pageLength) {
+    public ListAndCount<BackupTaskVo> listBackupTaskDetail(String backupCeph, Integer page, Integer pageLength) {
         ListAndCount<BackupTaskVo> listAndCount = new ListAndCount<BackupTaskVo>();
-        List<BackupTaskVo> vos= backupTaskDao.listBackupTaskDetail(backupCeph,page<=0?0:pageLength*(page-1), pageLength);
+        List<BackupTaskVo> vos = backupTaskDao.listBackupTaskDetail(backupCeph, page <= 0 ? 0 : pageLength * (page - 1), pageLength);
         if (!CollectionUtils.isEmpty(vos)) {
             for (BackupTaskVo vo : vos) {
                 vo.setReadableSize(FileUtil.readableFileSize(vo.getSize()));
@@ -277,24 +278,30 @@ public class BackupService {
     }
 
 
-    public ListAndCount<BackupRecordVo> listBackupRecordByTaskId(Long taskId, Integer page, Integer pageLength) {
-        IPage<BackupRecord> pages = backupRecordDao.selectPage(new Page<BackupRecord>(page, pageLength), new QueryWrapper<BackupRecord>().eq("task_id", taskId));
+    public ListAndCount<BackupRecordVo> listBackupRecordByTaskId(boolean failOnly,Long taskId, Integer page, Integer pageLength) {
+        QueryWrapper<BackupRecord> wrapper=new QueryWrapper<BackupRecord>().eq("task_id", taskId);
+        if (failOnly) {
+            wrapper.eq("backup_result", BACKUP_FAIL);
+        }
+        IPage<BackupRecord> pages = backupRecordDao.selectPage(new Page<BackupRecord>(page, pageLength), wrapper);
         ListAndCount<BackupRecordVo> listAndCount = new ListAndCount<BackupRecordVo>();
         List<BackupRecordVo> vos = CloneUtil.batchClone(pages.getRecords(), BackupRecordVo.class);
         for (BackupRecordVo vo : vos) {
-            vo.setReadableSize(FileUtil.readableFileSize(vo.getSize()==null?0:vo.getSize()));
+            vo.setReadableSize(FileUtil.readableFileSize(vo.getSize() == null ? 0 : vo.getSize()));
         }
         listAndCount.setList(vos);
         listAndCount.setCount(pages.getTotal());
         return listAndCount;
     }
 
+
+
     public List<BackupTask> listRunningTasks() {
         return backupTaskDao.selectList(new QueryWrapper<BackupTask>().eq("backup_type", REGULAR_BACKUP).eq("task_status", TASK_RUNNING));
     }
 
     public void suspendRunningTask() {
-        List<BackupTask> tasks=listRunningTasks();
+        List<BackupTask> tasks = listRunningTasks();
         if (!CollectionUtils.isEmpty(tasks)) {
             for (BackupTask task : tasks) {
                 task.setTaskStatus(TASK_SUSPEND);

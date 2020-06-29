@@ -45,18 +45,6 @@ spring:
   # 防御sql注入的filter:wall
   filters: stat
 
-src.access.id : 2BNBAHO72FZDN6UW8QS8
-src.secret.key: xSymVW1BxA4pLeEtYsNW3ox9o8RKdAYAOhgsRdbd
-src.endpoint : http://sgw.office.gz
-
-#
-des.access.id : QG1BV2COABRCL1RBHV4V
-des.secret.key: bmR3GqDRKFbwFkwo7pkdn7hJm4RXiNS1eQYm7kxU
-des.endpoint : http://abs-rgw.dp1.gz
-
-
-backup.prefix :
-
 # 超过8M就分块上传
 transfer.put.maxsize: 8388608
 server:

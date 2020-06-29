@@ -27,6 +27,7 @@ public class BackupTaskVo {
 
     private String readableSize;
 
+
     public Long getSize() {
         return size;
     }

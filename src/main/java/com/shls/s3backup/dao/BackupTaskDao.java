@@ -11,10 +11,9 @@ import java.util.List;
  * 备份任务表 mapper
  * 
  * @author killer
- * @date 2020-06-11
+ * @date 2020-06-29
  */
 public interface BackupTaskDao extends BaseMapper<BackupTask> {
-
-    List<BackupTaskVo> listBackupTaskDetail(@Param("backupCeph") String backupCeph,@Param("offset") Integer offset, @Param("length") Integer length);
+    List<BackupTaskVo> listBackupTaskDetail(@Param("backupCeph") String backupCeph, @Param("offset") Integer offset, @Param("length") Integer length);
 
 }

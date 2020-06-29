@@ -11,7 +11,7 @@ import java.util.Date;
  * 备份任务表
  *
  * @author killer
- * @date 2020-06-11
+ * @date 2020-06-29
  */
 @TableName("backup_task")
 public class BackupTask extends Model<BackupTask> {
@@ -32,7 +32,7 @@ public class BackupTask extends Model<BackupTask> {
     @TableId
     private Long id;
     /**
-     * 是否删除
+     * 删除标记
      */
     @TableField(fill = FieldFill.INSERT)
     @TableLogic
@@ -63,6 +63,10 @@ public class BackupTask extends Model<BackupTask> {
      * 任务结束时间
      */
     private Date endTime;
+    /**
+     * 备份的ceph
+     */
+    private String backupCeph;
 
 
     public void setId(Long id) {
@@ -126,6 +130,14 @@ public class BackupTask extends Model<BackupTask> {
     }
     public Date getEndTime() {
         return this.endTime;
+    }
+
+
+    public void setBackupCeph(String backupCeph) {
+        this.backupCeph = backupCeph;
+    }
+    public String getBackupCeph() {
+        return this.backupCeph;
     }
 
 }

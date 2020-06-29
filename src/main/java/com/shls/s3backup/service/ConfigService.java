@@ -36,6 +36,10 @@ public class ConfigService {
         return cephConfigDao.selectList(null);
     }
 
+    public CephConfig getConfigByName(String cephName) {
+        return cephConfigDao.selectOne(new QueryWrapper<CephConfig>().eq("ceph_name", cephName));
+    }
+
     public CephConfig getCephConfigDetail(Long id) {
         return cephConfigDao.selectById(id);
     }
